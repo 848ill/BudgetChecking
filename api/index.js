@@ -3,9 +3,15 @@ const { createClient } = require('@vercel/kv');
 const app = express();
 const path = require('path');
 
+// Middleware to handle JSON payloads
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
 
+// For local development, serve static files from the public directory
+if (process.env.NODE_ENV !== 'production') {
+  app.use(express.static(path.join(__dirname, '../public')));
+}
+
+// Initialize Vercel KV client
 const kv = createClient({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN,
@@ -60,18 +66,12 @@ app.post('/api/budget', async (req, res) => {
     }
 });
 
-// Serve the frontend for any other route
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
-});
-
-// For local development, we can listen on port 3000.
-// Vercel will ignore this when deploying.
+// For local dev, this will catch any other request and serve the frontend.
+// In production, Vercel's routing will handle this.
 if (process.env.NODE_ENV !== 'production') {
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-    });
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  });
 }
 
 module.exports = app; 
