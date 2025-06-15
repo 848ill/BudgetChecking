@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakdown Anggaran Bulanan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f9;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+        }
+        .currency-input::before {
+            content: 'Rp';
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+        }
+        .currency-input input {
+            padding-left: 2.5rem;
+            text-align: right;
+        }
+        .summary-value {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .positive {
+            color: #16a34a; /* green-600 */
+        }
+        .negative {
+            color: #dc2626; /* red-600 */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Breakdown Anggaran Bulanan</h1>
+            <p class="text-gray-600 mt-1">Alokasikan pemasukan Anda dan lacak pengeluaran secara otomatis.</p>
+        </header>
+
+        <!-- Ringkasan Anggaran -->
+        <div class="card p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Ringkasan Keuangan</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="flex flex-col p-4 bg-blue-50 rounded-lg">
+                    <label for="pemasukan" class="text-sm font-medium text-blue-800">Pemasukan Bulanan</label>
+                    <div class="relative mt-1 currency-input">
+                         <input type="text" id="pemasukan" class="input-field font-semibold text-blue-900" onkeyup="formatAndCalculate(this)">
+                    </div>
+                </div>
+                <div class="flex flex-col p-4 bg-yellow-50 rounded-lg">
+                    <span class="text-sm font-medium text-yellow-800">Total Anggaran</span>
+                    <span id="total-anggaran" class="summary-value text-lg mt-1 text-yellow-900">Rp 0</span>
+                </div>
+                <div class="flex flex-col p-4 bg-red-50 rounded-lg">
+                    <span class="text-sm font-medium text-red-800">Total Pengeluaran</span>
+                    <span id="total-aktual" class="summary-value text-lg mt-1 text-red-900">Rp 0</span>
+                </div>
+                <div class="flex flex-col p-4 bg-green-50 rounded-lg">
+                    <span class="text-sm font-medium text-green-800">Sisa Uang (Aktual)</span>
+                    <span id="sisa-uang" class="summary-value text-lg mt-1 text-green-900">Rp 0</span>
+                </div>
+            </div>
+             <div class="mt-4 p-4 bg-gray-100 rounded-lg">
+                <span class="text-sm font-medium text-gray-800">Anggaran yang Belum Dialokasikan:</span>
+                <span id="sisa-alokasi" class="summary-value text-lg ml-2">Rp 0</span>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="flex justify-end mb-6">
+            <button id="save-button" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                Simpan Anggaran
+            </button>
+        </div>
+
+        <!-- Tabel Anggaran -->
+        <div class="card overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="p-4 text-sm font-semibold text-gray-600 w-1/12">No.</th>
+                        <th class="p-4 text-sm font-semibold text-gray-600 w-4/12">Komponen</th>
+                        <th class="p-4 text-sm font-semibold text-gray-600 w-3/12">Anggaran (Rp)</th>
+                        <th class="p-4 text-sm font-semibold text-gray-600 w-3/12">Aktual (Rp)</th>
+                        <th class="p-4 text-sm font-semibold text-gray-600 w-2/12">Selisih (Rp)</th>
+                    </tr>
+                </thead>
+                <tbody id="budget-table-body" class="divide-y divide-gray-200">
+                    <!-- Rows will be generated by JavaScript -->
+                </tbody>
+                <tfoot class="bg-gray-50">
+                    <tr>
+                        <td colspan="2" class="p-4 font-bold text-gray-700 text-right">TOTAL</td>
+                        <td id="total-footer-anggaran" class="p-4 font-bold text-gray-800 text-right">Rp 0</td>
+                        <td id="total-footer-aktual" class="p-4 font-bold text-gray-800 text-right">Rp 0</td>
+                        <td id="total-footer-selisih" class="p-4 font-bold text-gray-800 text-right">Rp 0</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <footer class="text-center text-sm text-gray-500 mt-8">
+            <p>Dibuat untuk mempermudah pengelolaan keuangan Anda.</p>
+        </footer>
+    </div>
+
+    <script>
+        const tableBody = document.getElementById('budget-table-body');
+        const pemasukanInput = document.getElementById('pemasukan');
+        let budgetComponents = []; // Will be populated from API
+
+        // Function to render table rows
+        function renderTable(components, savedItems = {}) {
+            let html = '';
+            components.forEach((item, index) => {
+                const savedAnggaran = savedItems[item]?.anggaran || 0;
+                const savedAktual = savedItems[item]?.aktual || 0;
+                html += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-4 text-gray-500">${index + 1}.</td>
+                        <td class="p-4 font-medium text-gray-700">${item}</td>
+                        <td class="p-4">
+                            <div class="relative currency-input">
+                                <input type="text" data-type="anggaran" data-component="${item}" class="input-field" onkeyup="formatAndCalculate(this)" value="${formatCurrency(savedAnggaran)}">
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            <div class="relative currency-input">
+                                <input type="text" data-type="aktual" data-component="${item}" class="input-field" onkeyup="formatAndCalculate(this)" value="${formatCurrency(savedAktual)}">
+                            </div>
+                        </td>
+                        <td class="p-4 font-medium text-right" data-type="selisih">Rp 0</td>
+                    </tr>
+                `;
+            });
+            tableBody.innerHTML = html;
+        }
+        
+        // Function to parse formatted currency string to number
+        function parseCurrency(value) {
+            if (typeof value !== 'string') return 0;
+            return Number(value.replace(/[^0-9]/g, '')) || 0;
+        }
+
+        // Function to format number to IDR currency
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('id-ID', {
+                // style: 'currency', currency: 'IDR' -> This adds "Rp" symbol, we'll add it manually for more control
+                minimumFractionDigits: 0
+            }).format(value);
+        }
+
+        // Main function to format input and trigger calculations
+        function formatAndCalculate(inputElement) {
+            // Format the input value as user types
+            const rawValue = parseCurrency(inputElement.value);
+            inputElement.value = formatCurrency(rawValue);
+
+            // Recalculate everything
+            calculateTotals();
+        }
+        
+        // Function to calculate all totals and update the UI
+        function calculateTotals() {
+            const pemasukan = parseCurrency(pemasukanInput.value);
+            let totalAnggaran = 0;
+            let totalAktual = 0;
+
+            const rows = tableBody.getElementsByTagName('tr');
+
+            for (let row of rows) {
+                const anggaranInput = row.querySelector('input[data-type="anggaran"]');
+                const aktualInput = row.querySelector('input[data-type="aktual"]');
+                const selisihCell = row.querySelector('td[data-type="selisih"]');
+
+                const anggaran = parseCurrency(anggaranInput.value);
+                const aktual = parseCurrency(aktualInput.value);
+                
+                totalAnggaran += anggaran;
+                totalAktual += aktual;
+                
+                const selisih = anggaran - aktual;
+                selisihCell.textContent = 'Rp ' + formatCurrency(selisih);
+                
+                // Add color to selisih
+                selisihCell.classList.remove('positive', 'negative');
+                if (selisih > 0) selisihCell.classList.add('positive');
+                if (selisih < 0) selisihCell.classList.add('negative');
+            }
+
+            // Update summary cards
+            document.getElementById('total-anggaran').textContent = 'Rp ' + formatCurrency(totalAnggaran);
+            document.getElementById('total-aktual').textContent = 'Rp ' + formatCurrency(totalAktual);
+            
+            const sisaUang = pemasukan - totalAktual;
+            const sisaUangEl = document.getElementById('sisa-uang');
+            sisaUangEl.textContent = 'Rp ' + formatCurrency(sisaUang);
+            sisaUangEl.classList.remove('negative', 'positive');
+            sisaUangEl.classList.toggle('negative', sisaUang < 0);
+            sisaUangEl.classList.toggle('positive', sisaUang >= 0);
+
+            const sisaAlokasi = pemasukan - totalAnggaran;
+            const sisaAlokasiEl = document.getElementById('sisa-alokasi');
+            sisaAlokasiEl.textContent = 'Rp ' + formatCurrency(sisaAlokasi);
+            sisaAlokasiEl.classList.remove('negative', 'positive');
+            sisaAlokasiEl.classList.toggle('negative', sisaAlokasi < 0);
+
+
+            // Update table footer
+            document.getElementById('total-footer-anggaran').textContent = 'Rp ' + formatCurrency(totalAnggaran);
+            document.getElementById('total-footer-aktual').textContent = 'Rp ' + formatCurrency(totalAktual);
+            const totalSelisih = totalAnggaran - totalAktual;
+            const totalSelisihEl = document.getElementById('total-footer-selisih');
+            totalSelisihEl.textContent = 'Rp ' + formatCurrency(totalSelisih);
+            totalSelisihEl.classList.remove('positive', 'negative');
+            if(totalSelisih > 0) totalSelisihEl.classList.add('positive');
+            if(totalSelisih < 0) totalSelisihEl.classList.add('negative');
+        }
+
+        async function loadBudgetData() {
+            try {
+                const response = await fetch('/api/budget');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                budgetComponents = data.components;
+                
+                pemasukanInput.value = formatCurrency(data.savedData.pemasukan || 0);
+                renderTable(data.components, data.savedData.items);
+                calculateTotals();
+            } catch (error) {
+                console.error("Could not load budget data:", error);
+                // Fallback to empty table if API fails, after getting component list from server
+                const response = await fetch('/api/budget');
+                const data = await response.json();
+                budgetComponents = data.components;
+                renderTable(budgetComponents);
+            }
+        }
+
+        async function saveBudgetData() {
+            const pemasukan = parseCurrency(pemasukanInput.value);
+            const items = {};
+            const rows = tableBody.getElementsByTagName('tr');
+
+            for (let row of rows) {
+                const componentName = row.querySelector('input[data-type="anggaran"]').dataset.component;
+                const anggaran = parseCurrency(row.querySelector('input[data-type="anggaran"]').value);
+                const aktual = parseCurrency(row.querySelector('input[data-type="aktual"]').value);
+                items[componentName] = { anggaran, aktual };
+            }
+            
+            const dataToSave = { pemasukan, items };
+
+            try {
+                const response = await fetch('/api/budget', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(dataToSave),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log(result.message); // e.g., "Budget saved successfully."
+                alert('Anggaran berhasil disimpan!');
+            } catch (error) {
+                console.error('Could not save budget data:', error);
+                alert('Gagal menyimpan anggaran. Silakan coba lagi.');
+            }
+        }
+
+        // Initial setup
+        window.onload = () => {
+            loadBudgetData();
+            pemasukanInput.addEventListener('keyup', () => formatAndCalculate(pemasukanInput));
+            document.getElementById('save-button').addEventListener('click', saveBudgetData);
+        };
+    </script>
+</body>
+</html>

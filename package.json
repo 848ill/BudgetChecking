@@ -1,0 +1,25 @@
+{
+  "name": "budgetchecking",
+  "version": "1.0.0",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/848ill/BudgetChecking.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/848ill/BudgetChecking/issues"
+  },
+  "homepage": "https://github.com/848ill/BudgetChecking#readme",
+  "description": "",
+  "dependencies": {
+    "@vercel/kv": "^3.0.0",
+    "express": "^5.1.0"
+  }
+}
