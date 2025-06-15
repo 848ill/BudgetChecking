@@ -59,6 +59,11 @@
             <p class="text-gray-600 mt-1">Alokasikan pemasukan Anda dan lacak pengeluaran secara otomatis.</p>
         </header>
 
+        <!-- Current Budget Month Display -->
+        <div class="mb-6">
+            <h2 id="current-month-display" class="text-xl font-semibold text-gray-700">Memuat Anggaran...</h2>
+        </div>
+
         <!-- Ringkasan Anggaran -->
         <div class="card p-6 mb-6">
             <h2 class="text-xl font-semibold mb-4 text-gray-700">Ringkasan Keuangan</h2>
@@ -89,7 +94,10 @@
         </div>
 
         <!-- Save Button -->
-        <div class="flex justify-end mb-6">
+        <div class="flex justify-between items-center mb-6">
+            <button id="new-budget-button" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                Anggaran Bulan Ini
+            </button>
             <button id="save-button" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
                 Simpan Anggaran
             </button>
@@ -120,6 +128,16 @@
                 </tfoot>
             </table>
         </div>
+
+        <!-- Riwayat Anggaran -->
+        <div class="card p-6 mt-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Riwayat Anggaran</h2>
+            <div id="history-list" class="space-y-3">
+                <!-- History items will be generated here -->
+                <p class="text-gray-500">Memuat riwayat...</p>
+            </div>
+        </div>
+
         <footer class="text-center text-sm text-gray-500 mt-8">
             <p>Dibuat untuk mempermudah pengelolaan keuangan Anda.</p>
         </footer>
@@ -128,7 +146,14 @@
     <script>
         const tableBody = document.getElementById('budget-table-body');
         const pemasukanInput = document.getElementById('pemasukan');
-        let budgetComponents = []; // Will be populated from API
+        const historyList = document.getElementById('history-list');
+        const currentMonthDisplay = document.getElementById('current-month-display');
+
+        let budgetComponents = [];
+        let currentBudget = {
+            key: null,
+            data: { pemasukan: 0, items: {} }
+        };
 
         // Function to render table rows
         function renderTable(components, savedItems = {}) {
@@ -238,29 +263,46 @@
             if(totalSelisih < 0) totalSelisihEl.classList.add('negative');
         }
 
-        async function loadBudgetData() {
+        function formatMonthKey(key) {
+            if (!key) return "Anggaran Baru";
+            const [, year, month] = key.split('-');
+            const date = new Date(year, month - 1);
+            return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        }
+
+        async function loadBudgetData(key) {
+            if (!key) {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                key = `budget-${year}-${month}`;
+            }
+
             try {
-                const response = await fetch('/api/budget');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const response = await fetch(`/api/budget/${key}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
                 const data = await response.json();
                 budgetComponents = data.components;
-                
-                pemasukanInput.value = formatCurrency(data.savedData.pemasukan || 0);
-                renderTable(data.components, data.savedData.items);
+                currentBudget = { key, data: data.savedData };
+
+                pemasukanInput.value = formatCurrency(currentBudget.data.pemasukan || 0);
+                renderTable(data.components, currentBudget.data.items);
                 calculateTotals();
+                currentMonthDisplay.textContent = `Anggaran untuk: ${formatMonthKey(key)}`;
+
             } catch (error) {
                 console.error("Could not load budget data:", error);
-                // Fallback to empty table if API fails, after getting component list from server
-                const response = await fetch('/api/budget');
-                const data = await response.json();
-                budgetComponents = data.components;
-                renderTable(budgetComponents);
+                alert(`Gagal memuat data untuk ${key}.`);
             }
         }
 
         async function saveBudgetData() {
+            if (!currentBudget.key) {
+                alert("Tidak ada budget yang sedang dimuat. Coba muat anggaran bulan ini terlebih dahulu.");
+                return;
+            }
+
             const pemasukan = parseCurrency(pemasukanInput.value);
             const items = {};
             const rows = tableBody.getElementsByTagName('tr');
@@ -272,35 +314,82 @@
                 items[componentName] = { anggaran, aktual };
             }
             
-            const dataToSave = { pemasukan, items };
+            const dataToSave = { pemasukan, items, key: currentBudget.key };
 
             try {
                 const response = await fetch('/api/budget', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(dataToSave),
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 
                 const result = await response.json();
-                console.log(result.message); // e.g., "Budget saved successfully."
-                alert('Anggaran berhasil disimpan!');
+                alert(result.message);
+                loadHistory(); // Refresh history list
             } catch (error) {
                 console.error('Could not save budget data:', error);
                 alert('Gagal menyimpan anggaran. Silakan coba lagi.');
             }
         }
 
+        async function deleteBudget(key) {
+            if (!confirm(`Apakah Anda yakin ingin menghapus anggaran untuk ${formatMonthKey(key)}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/budget/${key}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                const result = await response.json();
+                alert(result.message);
+                loadHistory();
+                
+                // If the deleted budget was the currently loaded one, load the current month's budget
+                if (currentBudget.key === key) {
+                    loadBudgetData();
+                }
+            } catch (error) {
+                console.error('Could not delete budget:', error);
+                alert(`Gagal menghapus anggaran.`);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/budgets');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const keys = await response.json();
+
+                if (keys.length === 0) {
+                    historyList.innerHTML = '<p class="text-gray-500">Belum ada riwayat anggaran yang tersimpan.</p>';
+                    return;
+                }
+
+                historyList.innerHTML = keys.map(key => `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <span class="font-medium text-gray-800">${formatMonthKey(key)}</span>
+                        <div>
+                            <button class="px-4 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 mr-2" onclick="loadBudgetData('${key}')">Muat</button>
+                            <button class="px-4 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600" onclick="deleteBudget('${key}')">Hapus</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Could not load history:', error);
+                historyList.innerHTML = '<p class="text-red-500">Gagal memuat riwayat.</p>';
+            }
+        }
+
         // Initial setup
         window.onload = () => {
-            loadBudgetData();
+            loadBudgetData(); // Load current month's budget by default
+            loadHistory();
             pemasukanInput.addEventListener('keyup', () => formatAndCalculate(pemasukanInput));
             document.getElementById('save-button').addEventListener('click', saveBudgetData);
+            document.getElementById('new-budget-button').addEventListener('click', () => loadBudgetData());
         };
     </script>
 </body>
